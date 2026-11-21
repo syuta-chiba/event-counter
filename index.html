@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+<meta name="theme-color" content="#1f4fd1">
+<title>来場カウンター</title>
+<style>
+:root{
+  --bg:#f4f6fb; --card:#fff; --ink:#18202f; --sub:#5b6577; --line:#dfe4ee;
+  --accent:#1f4fd1; --accent-ink:#fff; --soft:#e8eefc; --warn:#c2361f;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#10131a; --card:#1a1f2a; --ink:#eef1f7; --sub:#9aa4b6; --line:#2c3342;
+    --accent:#5b8cff; --accent-ink:#0b1020; --soft:#232c40; --warn:#ff7a63; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  -webkit-tap-highlight-color:transparent}
+main{max-width:640px;margin:0 auto;padding:12px 16px 80px}
+h1{font-size:15px;color:var(--sub);font-weight:600;margin:4px 0 10px;display:flex;justify-content:space-between;align-items:center}
+h2{font-size:14px;color:var(--sub);margin:22px 0 8px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat .lbl{font-size:13px;color:var(--sub);font-weight:600}
+.stat .big{font-size:40px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .big small{font-size:16px;font-weight:600;color:var(--sub);margin-left:2px}
+.stat.today{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.stat.today .lbl,.stat.today .big small{color:inherit;opacity:.85}
+.note{font-size:12px;color:var(--sub);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+  padding:10px 16px;font-size:16px;font-weight:600}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.num{border:none;background:var(--soft);color:var(--ink);border-radius:12px;padding:18px 0;
+  font-size:26px;font-weight:800}
+.num:active{transform:scale(.96)}
+.num span{font-size:13px;font-weight:600;margin-left:1px}
+table{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--sub);font-weight:600}
+.log li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.log{list-style:none;margin:0;padding:0;max-height:320px;overflow:auto}
+.log .t{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
+.x{border:1px solid var(--line);background:transparent;color:var(--warn);border-radius:8px;padding:4px 10px;font-size:13px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:100%}
+label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
+  width:calc(100% - 32px);max-width:420px;justify-content:space-between}
+.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:6px 12px;font-size:14px;font-weight:700}
+details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;padding:6px 0}
+.empty{color:var(--sub);font-size:14px;padding:6px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1><span id="title">来場カウンター</span><span id="clock"></span></h1>
+
+  <div class="stats">
+    <div class="card stat today">
+      <div class="lbl" id="todayLbl">2日目</div>
+      <div class="big"><span id="tG">0</span><small>組</small></div>
+      <div class="big"><span id="tP">0</span><small>人</small></div>
+    </div>
+    <div class="card stat">
+      <div class="lbl">累計（1日目＋2日目）</div>
+      <div class="big"><span id="cG">0</span><small>組</small></div>
+      <div class="big"><span id="cP">0</span><small>人</small></div>
+    </div>
+  </div>
+  <div class="note" id="baseNote"></div>
+
+  <h2>① 地点をえらぶ（任意）</h2>
+  <div class="chips" id="places"></div>
+
+  <h2>② 人数をタップで記録</h2>
+  <div class="nums" id="nums"></div>
+
+  <h2>地点別（2日目）</h2>
+  <div class="card"><table id="byPlace"></table></div>
+
+  <h2>時間帯別（2日目）</h2>
+  <div class="card"><table id="byHour"></table></div>
+
+  <h2>記録（新しい順）</h2>
+  <div class="card"><ul class="log" id="log"></ul></div>
+
+  <h2>設定</h2>
+  <div class="card">
+    <details>
+      <summary>1日目の数・地点の編集・保存</summary>
+      <div class="grid2" style="margin-top:8px">
+        <div><label>1日目の組数</label><input id="bG" type="number" inputmode="numeric" min="0"></div>
+        <div><label>1日目の人数</label><input id="bP" type="number" inputmode="numeric" min="0"></div>
+      </div>
+      <div style="margin-top:10px"><label>今日の呼び名</label><input id="dayName"></div>
+      <div style="margin-top:10px">
+        <label>地点を追加（例: 正面入口、駐車場、〇〇市内）</label>
+        <div class="row"><input id="newPlace" style="flex:1"><button class="btn" id="addPlace">追加</button></div>
+        <div class="chips" id="placeEdit" style="margin-top:8px"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="csv">CSV を保存</button>
+        <button class="btn" id="reset" style="color:var(--warn)">今日の記録を全部消す</button>
+      </div>
+      <div class="note">記録はこの端末のブラウザにだけ保存されます。別の端末とは共有されません。念のため、終わったら CSV を保存してください。</div>
+    </details>
+  </div>
+</main>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
+
+<script>
+const KEY = 'event-counter-v1';
+const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: ['市内', '市外', '県外'], entries: [] };
+let S;
+try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = Object.assign({}, DEF); }
+let sel = null, lastId = null, toastTimer = null;
+const $ = id => document.getElementById(id);
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function add(n) {
+  const e = { id: Date.now() + Math.random(), t: Date.now(), n, place: sel || '' };
+  S.entries.push(e); lastId = e.id; save(); render();
+  showToast(`${e.place ? e.place + '・' : ''}${n}人 を記録（${S.entries.length}組目）`);
+  sel = null; renderPlaces();
+}
+function del(id) { S.entries = S.entries.filter(e => e.id !== id); save(); render(); }
+function showToast(msg) {
+  $('toastMsg').textContent = msg; $('toast').style.display = 'flex';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').style.display = 'none', 5000);
+}
+$('undo').onclick = () => { if (lastId != null) del(lastId); lastId = null; $('toast').style.display = 'none'; };
+
+function renderPlaces() {
+  $('places').innerHTML = S.places.map(p => `<button class="chip ${sel===p?'on':''}" data-p="${esc(p)}">${esc(p)}</button>`).join('')
+    || '<div class="empty">設定から地点を追加できます</div>';
+  $('places').querySelectorAll('.chip').forEach(b => b.onclick = () => { sel = sel === b.dataset.p ? null : b.dataset.p; renderPlaces(); });
+  $('placeEdit').innerHTML = S.places.map((p,i) => `<button class="chip" data-i="${i}">${esc(p)} ✕</button>`).join('');
+  $('placeEdit').querySelectorAll('.chip').forEach(b => b.onclick = () => {
+    if (confirm(`地点「${S.places[b.dataset.i]}」を一覧から外しますか？（記録は残ります）`)) { S.places.splice(b.dataset.i,1); save(); render(); }
+  });
+}
+
+function render() {
+  const E = S.entries, g = E.length, p = E.reduce((a,e)=>a+e.n,0);
+  $('tG').textContent = g; $('tP').textContent = p;
+  $('cG').textContent = S.baseG + g; $('cP').textContent = S.baseP + p;
+  $('todayLbl').textContent = S.dayName; $('title').textContent = '来場カウンター（' + S.dayName + '）';
+  $('baseNote').textContent = `1日目: ${S.baseG}組 ${S.baseP}人` + (g ? `　／　2日目の平均 ${(p/g).toFixed(1)}人/組` : '');
+  $('bG').value = S.baseG; $('bP').value = S.baseP; $('dayName').value = S.dayName;
+
+  // by place
+  const m = new Map(); S.places.forEach(x => m.set(x, {g:0,p:0}));
+  E.forEach(e => { const k = e.place || '未選択'; if (!m.has(k)) m.set(k,{g:0,p:0}); m.get(k).g++; m.get(k).p += e.n; });
+  const rows = [...m].filter(([k,v]) => v.g || S.places.includes(k));
+  $('byPlace').innerHTML = '<tr><th>地点</th><th>組</th><th>人</th><th>人の割合</th></tr>' +
+    rows.map(([k,v]) => `<tr><td>${esc(k)}</td><td>${v.g}</td><td>${v.p}</td><td>${p? Math.round(v.p/p*100):0}%</td></tr>`).join('') +
+    `<tr><td><b>合計</b></td><td><b>${g}</b></td><td><b>${p}</b></td><td></td></tr>`;
+
+  // by hour
+  const h = new Map(); E.forEach(e => { const k = new Date(e.t).getHours(); if(!h.has(k)) h.set(k,{g:0,p:0}); h.get(k).g++; h.get(k).p+=e.n; });
+  $('byHour').innerHTML = h.size ? '<tr><th>時間</th><th>組</th><th>人</th></tr>' +
+    [...h].sort((a,b)=>a[0]-b[0]).map(([k,v]) => `<tr><td>${k}時台</td><td>${v.g}</td><td>${v.p}</td></tr>`).join('')
+    : '<tr><td class="empty">まだ記録がありません</td></tr>';
+
+  // log
+  $('log').innerHTML = E.length ? E.slice().reverse().map((e,i) =>
+    `<li><span><span class="t">${hhmm(e.t)}</span>${E.length-i}組目　${e.n}人${e.place?'　'+esc(e.place):''}</span><button class="x" data-id="${e.id}">消す</button></li>`).join('')
+    : '<li class="empty">まだ記録がありません</li>';
+  $('log').querySelectorAll('.x').forEach(b => b.onclick = () => { if (confirm('この記録を消しますか？')) del(Number(b.dataset.id)); });
+  renderPlaces();
+}
+
+// number buttons
+$('nums').innerHTML = [1,2,3,4,5,6,7].map(n => `<button class="num" data-n="${n}">${n}<span>人</span></button>`).join('') +
+  '<button class="num" data-n="x" style="font-size:18px">8人〜</button>';
+$('nums').querySelectorAll('.num').forEach(b => b.onclick = () => {
+  if (b.dataset.n === 'x') { const v = parseInt(prompt('人数を入力してください', '8'), 10); if (v > 0) add(v); }
+  else add(Number(b.dataset.n));
+});
+
+$('bG').onchange = () => { S.baseG = Math.max(0, parseInt($('bG').value,10) || 0); save(); render(); };
+$('bP').onchange = () => { S.baseP = Math.max(0, parseInt($('bP').value,10) || 0); save(); render(); };
+$('dayName').onchange = () => { S.dayName = $('dayName').value.trim() || '2日目'; save(); render(); };
+$('addPlace').onclick = () => { const v = $('newPlace').value.trim(); if (v && !S.places.includes(v)) { S.places.push(v); save(); } $('newPlace').value=''; render(); };
+$('reset').onclick = () => { if (confirm('今日の記録をすべて消します。よろしいですか？') && confirm('本当に消しますか？（元に戻せません）')) { S.entries = []; save(); render(); } };
+$('csv').onclick = () => {
+  const lines = ['時刻,人数,地点', ...S.entries.map(e => `${new Date(e.t).toLocaleString('ja-JP')},${e.n},"${(e.place||'').replace(/"/g,'""')}"`)];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], {type:'text/csv'}));
+  a.download = `来場記録_${S.dayName}.csv`; a.click();
+};
+const tick = () => $('clock').textContent = hhmm(Date.now()); tick(); setInterval(tick, 10000);
+render();
+</script>
+</body>
+</html>
