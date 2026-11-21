@@ -1,0 +1,45 @@
+# 元のページを 5 分おきに取りに行き、変わっていたら取り込んで公開する
+name: sync
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: 取りに行く
+        id: fetch
+        env:
+          SOURCE_URL: ${{ secrets.SOURCE_URL }}
+        run: |
+          [ -n "$SOURCE_URL" ] || { echo "::error::secret SOURCE_URL 未設定"; exit 1; }
+          mkdir -p site
+          curl -fsSL "$SOURCE_URL?t=$(date +%s)" -o site/index.html.new
+          grep -q "</html>" site/index.html.new || { echo "::error::取得した中身が不完全"; exit 1; }
+          mv site/index.html.new site/index.html
+          git add site
+          if git diff --cached --quiet && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "changed=no" >> "$GITHUB_OUTPUT"; echo "変更なし"
+          else
+            echo "changed=yes" >> "$GITHUB_OUTPUT"
+            git -c user.name="sync" -c user.email="sync@users.noreply.github.com" commit -q -m "update" || true
+            git push -q
+          fi
+      - if: steps.fetch.outputs.changed == 'yes'
+        uses: actions/configure-pages@v5
+      - if: steps.fetch.outputs.changed == 'yes'
+        uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - if: steps.fetch.outputs.changed == 'yes'
+        uses: actions/deploy-pages@v4
