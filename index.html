@@ -51,6 +51,8 @@ th{font-size:12px;color:var(--sub);font-weight:600}
 input{font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:100%}
 label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.back{width:100%;margin-top:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:14px 0;font-size:17px;font-weight:700}
+.back:disabled{opacity:.4}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
   width:calc(100% - 32px);max-width:420px;justify-content:space-between}
@@ -77,14 +79,19 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
   </div>
   <div class="note" id="baseNote"></div>
 
-  <h2>① 地点をえらぶ（任意）</h2>
-  <div class="chips" id="places"></div>
+  <div id="placeSec">
+    <h2>① 地点をえらぶ（任意）</h2>
+    <div class="chips" id="places"></div>
+  </div>
 
-  <h2>② 人数をタップで記録</h2>
+  <h2 id="numsHead">人数をタップで記録</h2>
   <div class="nums" id="nums"></div>
+  <button class="back" id="back">↶ 戻る（1つ前の記録を取り消す）</button>
 
-  <h2>地点別（2日目）</h2>
-  <div class="card"><table id="byPlace"></table></div>
+  <div id="byPlaceSec">
+    <h2>地点別（2日目）</h2>
+    <div class="card"><table id="byPlace"></table></div>
+  </div>
 
   <h2>時間帯別（2日目）</h2>
   <div class="card"><table id="byHour"></table></div>
@@ -119,9 +126,11 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
 <script>
 const KEY = 'event-counter-v1';
-const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: ['市内', '市外', '県外'], entries: [] };
+const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: [], entries: [] };
 let S;
 try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = Object.assign({}, DEF); }
+// 以前の仮の地点（市内・市外・県外）は外す
+if (S.places.join() === '市内,市外,県外') { S.places = []; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 let sel = null, lastId = null, toastTimer = null;
 const $ = id => document.getElementById(id);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -135,13 +144,21 @@ function add(n) {
   sel = null; renderPlaces();
 }
 function del(id) { S.entries = S.entries.filter(e => e.id !== id); save(); render(); }
-function showToast(msg) {
+function showToast(msg, undo = true) {
+  $('undo').style.display = undo ? '' : 'none';
   $('toastMsg').textContent = msg; $('toast').style.display = 'flex';
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').style.display = 'none', 5000);
 }
 $('undo').onclick = () => { if (lastId != null) del(lastId); lastId = null; $('toast').style.display = 'none'; };
 
+$('back').onclick = () => {
+  const e = S.entries[S.entries.length - 1]; if (!e) return;
+  del(e.id); lastId = null; showToast(`戻しました（${hhmm(e.t)} の ${e.n}人 を取り消し）`, false);
+};
 function renderPlaces() {
+  const has = S.places.length > 0;
+  $('placeSec').style.display = has ? '' : 'none';
+  $('numsHead').textContent = has ? '② 人数をタップで記録' : '人数をタップで記録';
   $('places').innerHTML = S.places.map(p => `<button class="chip ${sel===p?'on':''}" data-p="${esc(p)}">${esc(p)}</button>`).join('')
     || '<div class="empty">設定から地点を追加できます</div>';
   $('places').querySelectorAll('.chip').forEach(b => b.onclick = () => { sel = sel === b.dataset.p ? null : b.dataset.p; renderPlaces(); });
@@ -159,6 +176,8 @@ function render() {
   $('baseNote').textContent = `1日目: ${S.baseG}組 ${S.baseP}人` + (g ? `　／　2日目の平均 ${(p/g).toFixed(1)}人/組` : '');
   $('bG').value = S.baseG; $('bP').value = S.baseP; $('dayName').value = S.dayName;
 
+  $('back').disabled = !g;
+  $('byPlaceSec').style.display = (S.places.length || E.some(e => e.place)) ? '' : 'none';
   // by place
   const m = new Map(); S.places.forEach(x => m.set(x, {g:0,p:0}));
   E.forEach(e => { const k = e.place || '未選択'; if (!m.has(k)) m.set(k,{g:0,p:0}); m.get(k).g++; m.get(k).p += e.n; });
