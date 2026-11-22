@@ -74,6 +74,9 @@ label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 .hist .op{font-weight:700;margin-right:6px}
 .hist .dev{font-size:12px;color:var(--sub);margin-left:6px}
 .hist .x.ok{color:var(--accent)}
+body.ro .edit-only, body:not(.ro) .ro-only{display:none !important}
+body.ro .log .x, body.ro .hist .x, body.ro #syncBtn, body.ro #undo{display:none}
+.robanner{margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:14px;font-weight:600}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
   width:calc(100% - 32px);max-width:420px;justify-content:space-between}
@@ -112,6 +115,8 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
     <div class="chips" id="places"></div>
   </div>
 
+  <div class="robanner ro-only">見る専用の端末です。入力する端末にするには、下の「設定」で合言葉を入れてください。</div>
+  <div class="edit-only">
   <h2 id="numsHead">人数をタップで記録</h2>
   <div class="nums" id="nums"></div>
   <div class="more" id="more" hidden>
@@ -119,6 +124,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
     <div class="nums" id="moreNums"></div>
   </div>
   <button class="back" id="back">↶ 戻る（この端末の1つ前の記録を取り消す）</button>
+  </div>
 
   <div id="byPlaceSec">
     <h2>地点別（2日目）</h2>
@@ -136,8 +142,21 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
   <h2>設定</h2>
   <div class="card">
+    <details id="keyBox">
+      <summary>入力する端末にする（合言葉）</summary>
+      <div class="ro-only" style="margin-top:8px">
+        <label>合言葉を入れると、この端末で入力・変更できるようになります</label>
+        <div class="row"><input id="keyIn" autocomplete="off" autocapitalize="off" style="flex:1"><button class="btn" id="keyOk">確認</button></div>
+        <div class="note" id="keyMsg"></div>
+      </div>
+      <div class="edit-only" style="margin-top:8px">
+        <div class="note" style="margin-top:0">この端末は入力できます。</div>
+        <button class="btn" id="keyOff" style="margin-top:8px">見る専用に戻す</button>
+      </div>
+    </details>
     <details>
       <summary>1日目の数・地点の編集・保存</summary>
+      <div class="edit-only">
       <div class="grid2" style="margin-top:8px">
         <div><label>1日目の組数</label><input id="bG" type="number" inputmode="numeric" min="0"></div>
         <div><label>1日目の人数</label><input id="bP" type="number" inputmode="numeric" min="0"></div>
@@ -148,9 +167,10 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
         <div class="row"><input id="newPlace" style="flex:1"><button class="btn" id="addPlace">追加</button></div>
         <div class="chips" id="placeEdit" style="margin-top:8px"></div>
       </div>
+      </div>
       <div class="row" style="margin-top:14px">
         <button class="btn" id="csv">CSV を保存</button>
-        <button class="btn" id="reset" style="color:var(--warn)">今日の記録を全部消す</button>
+        <button class="btn edit-only" id="reset" style="color:var(--warn)">今日の記録を全部消す</button>
       </div>
       <div class="note">記録はサーバーに保存され、このページを開いている端末どうしで共有されます（10 秒おきに自動で合わせます）。通信できないあいだはこの端末に保存し、つながったら自動で送ります。念のため、終わったら CSV を保存してください。</div>
     </details>
@@ -164,7 +184,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122103443'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122103816'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -227,6 +247,12 @@ function backfill() {
   if (added) S.log = mergeLog([], S.log);
   return added;
 }
+// 合言葉を入れた端末だけ入力できる（合言葉はこの端末にだけ保存。共有の記録には入れない）
+const EKEY = KEY + '-edit';
+let editKey = ''; try { editKey = localStorage.getItem(EKEY) || ''; } catch (e) {}
+const isEd = () => !!editKey;
+function setKey(k) { editKey = k; try { k ? localStorage.setItem(EKEY, k) : localStorage.removeItem(EKEY); } catch (e) {} applyMode(); render(); }
+function applyMode() { document.body.classList.toggle('ro', !isEd()); }
 let sel = null, lastId = null, toastTimer = null;
 const $ = id => document.getElementById(id);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -235,6 +261,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 
 function logIt(op, text, eids) { S.log.push({ id: uid(), at: Date.now(), op, dev: S.dev, text, eids: eids || [] }); }
 function add(n) {
+  if (!isEd()) return;
   const now = Date.now();
   const e = { id: uid(), t: now, n, place: sel || '', del: false, v: now };
   S.items.push(e); S.mine.push(e.id); lastId = e.id;
@@ -246,6 +273,7 @@ function add(n) {
 const OPS = { add: '＋ 記録', delete: '✕ 消す', back: '↶ 戻る', undo: '↶ 取り消し', restore: '↺ 元に戻す', reset: '✕ 全部消す', meta: '⚙ 設定' };
 // ids の記録を消す（del=true）か元に戻す（del=false）。履歴に 1 行残す
 function setDel(ids, del, op, text) {
+  if (!isEd()) return null;
   const now = Date.now(), done = [];
   ids.forEach(id => {
     const it = S.items.find(x => x.id === String(id));
@@ -258,7 +286,7 @@ function setDel(ids, del, op, text) {
   return done;
 }
 const del = (id, op = 'delete') => setDel([id], true, op);
-function setMeta(f, text) { f(); S.metaAt = Date.now(); if (text) logIt('meta', text); save(); render(); syncSoon(); }
+function setMeta(f, text) { if (!isEd()) { render(); return; } f(); S.metaAt = Date.now(); if (text) logIt('meta', text); save(); render(); syncSoon(); }
 
 let syncing = false, again = false, syncTimer = null, lastOk = 0;
 function syncSoon() { clearTimeout(syncTimer); syncTimer = setTimeout(sync, 300); }
@@ -266,9 +294,20 @@ async function sync() {
   if (syncing) { again = true; return; }
   syncing = true;
   try {
-    const body = JSON.stringify({ items: S.items, log: S.log,
+    if (!isEd()) {
+      // 見る専用: サーバーの記録をそのまま映す
+      const r = await fetch(SYNC_URL + '&cb=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      S.items = mergeItems(d.items || [], []); S.log = mergeLog(d.log || [], []); backfill();
+      if (d.meta) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; S.dayName = d.meta.dayName || S.dayName; }
+      save(); lastOk = Date.now(); render();
+      return;
+    }
+    const body = JSON.stringify({ key: editKey, items: S.items, log: S.log,
       meta: { at: S.metaAt || 0, baseG: S.baseG, baseP: S.baseP, dayName: S.dayName } });
     const r = await fetch(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, cache: 'no-store' });
+    if (r.status === 403) { setKey(''); showToast('合言葉が変わったため、見る専用になりました', false); return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     // 送っているあいだに変えた分も残す（v の新しい方）
@@ -410,6 +449,18 @@ function renderQR() {
   $('qrs').innerHTML = `<div class="qr"><div class="img">${img}</div><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></div>`;
 }
 $('qrBox').addEventListener('toggle', renderQR);
+$('keyOk').onclick = async () => {
+  const k = $('keyIn').value.trim().toLowerCase(); if (!k) return;
+  $('keyMsg').textContent = '確認中…';
+  try {
+    const r = await fetch(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: k, items: [], log: [] }), cache: 'no-store' });
+    if (r.status === 403) { $('keyMsg').textContent = '合言葉が違います'; return; }
+    if (!r.ok) throw new Error();
+    $('keyIn').value = ''; $('keyMsg').textContent = ''; setKey(k); showToast('この端末で入力できるようになりました', false); sync();
+  } catch (e) { $('keyMsg').textContent = '通信できません。つながってからもう一度押してください'; }
+};
+$('keyOff').onclick = () => { if (confirm('この端末を見る専用に戻しますか？')) setKey(''); };
+applyMode();
 const tick = () => $('clock').textContent = hhmm(Date.now()); tick(); setInterval(tick, 10000);
 render();
 sync();
