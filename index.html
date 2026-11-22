@@ -25,9 +25,10 @@ main{max-width:640px;margin:0 auto;padding:12px 16px 80px}
 h1{font-size:15px;color:var(--sub);font-weight:600;margin:4px 0 10px;display:flex;justify-content:space-between;align-items:center}
 h2{font-size:14px;color:var(--sub);margin:22px 0 8px;font-weight:600}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stats{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px}
+.stats .card{padding:10px}
 .stat .lbl{font-size:13px;color:var(--sub);font-weight:600}
-.stat .big{font-size:40px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .big{font-size:clamp(24px,8vw,40px);font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat .big small{font-size:16px;font-weight:600;color:var(--sub);margin-left:2px}
 .stat.today{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .stat.today .lbl,.stat.today .big small{color:inherit;opacity:.85}
@@ -83,13 +84,18 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
   <h1><span id="title">来場カウンター</span><span id="clock"></span></h1>
 
   <div class="stats">
+    <div class="card stat">
+      <div class="lbl">1日目</div>
+      <div class="big"><span id="dG">0</span><small>組</small></div>
+      <div class="big"><span id="dP">0</span><small>人</small></div>
+    </div>
     <div class="card stat today">
       <div class="lbl" id="todayLbl">2日目</div>
       <div class="big"><span id="tG">0</span><small>組</small></div>
       <div class="big"><span id="tP">0</span><small>人</small></div>
     </div>
     <div class="card stat">
-      <div class="lbl">累計（1日目＋2日目）</div>
+      <div class="lbl">合計</div>
       <div class="big"><span id="cG">0</span><small>組</small></div>
       <div class="big"><span id="cP">0</span><small>人</small></div>
     </div>
@@ -151,7 +157,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122101005'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122101139'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -254,9 +260,10 @@ function renderPlaces() {
 function render() {
   const E = S.entries, g = E.length, p = E.reduce((a,e)=>a+e.n,0);
   $('tG').textContent = g; $('tP').textContent = p;
+  $('dG').textContent = S.baseG; $('dP').textContent = S.baseP;
   $('cG').textContent = S.baseG + g; $('cP').textContent = S.baseP + p;
   $('todayLbl').textContent = S.dayName; $('title').textContent = '来場カウンター（' + S.dayName + '）';
-  $('baseNote').textContent = `1日目: ${S.baseG}組 ${S.baseP}人` + (g ? `　／　2日目の平均 ${(p/g).toFixed(1)}人/組` : '');
+  $('baseNote').textContent = g ? `${S.dayName}の平均 ${(p/g).toFixed(1)}人/組` : '';
   $('bG').value = S.baseG; $('bP').value = S.baseP; $('dayName').value = S.dayName;
 
   $('back').disabled = !E.some(e => S.mine.includes(e.id));
