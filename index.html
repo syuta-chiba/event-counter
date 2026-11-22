@@ -179,9 +179,9 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
     <details class="tbl"><summary>表で見る</summary><table id="byHour"></table></details>
   </div>
 
-  <h2>Google 口コミ・インスタ（日付別）</h2>
+  <h2>Google 口コミ・インスタ（3日目）</h2>
   <div class="card"><table class="kpi" id="kpiTbl"></table>
-    <div class="note">数字は手で入れます（入力する端末だけ）。「増」は前の日からの増え方です。</div></div>
+    <div class="note">数字は手で入れます（入力する端末だけ）。朝の数と、いまの数を入れると「増」に 3日目に増えた数が出ます。</div></div>
 
   <h2>記録（新しい順）</h2>
   <div class="card"><ul class="log" id="log"></ul></div>
@@ -237,7 +237,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122194411'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122194548'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -417,17 +417,17 @@ function renderHourChart(h) {
 }
 window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(render, 150); });
 // 口コミ・インスタ（日付ごとに手で入れる）
-const KPI_ROWS = [['2026-11-20', '開始前'], ['2026-11-21', '1日目'], ['2026-11-22', '2日目'], ['2026-11-23', '3日目']];
+const KPI_ROWS = [['d3-start', '3日目の朝'], ['d3-now', '3日目 いま']];
 const KPI_F = { rev: ['口コミ', '件'], ig: ['インスタ', '人'] };
 const fmt = n => n == null ? '—' : Number(n).toLocaleString('ja-JP');
 function kpiVal(date, f) { const r = (S.kpi || {})[date]; return r && r[f] != null ? r[f] : null; }
 function renderKpi() {
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#kpiTbl')) return; // 入力中は描き直さない
   const ed = isEd();
-  let html = '<tr><th>日</th><th>口コミ</th><th>増</th><th>インスタ</th><th>増</th></tr>';
+  let html = '<tr><th></th><th>口コミ</th><th>増</th><th>インスタ</th><th>増</th></tr>';
   const prev = { rev: null, ig: null };
   KPI_ROWS.forEach(([d, label]) => {
-    html += `<tr><td>${label}<br><span class="t">${Number(d.slice(5,7))}/${Number(d.slice(8))}</span></td>`;
+    html += `<tr><td>${label}</td>`;
     ['rev', 'ig'].forEach(f => {
       const v = kpiVal(d, f);
       const up = v != null && prev[f] != null ? v - prev[f] : null;
@@ -451,7 +451,7 @@ function renderKpi() {
     const vals = KPI_ROWS.map(([d]) => kpiVal(d, f)).filter(v => v != null);
     if (!vals.length) return '';
     const up = vals[vals.length - 1] - vals[0];
-    return `<span class="k"><small>${f === 'rev' ? 'Google 口コミ' : 'インスタ'}</small>${fmt(vals[vals.length - 1])}${KPI_F[f][1]}${vals.length > 1 ? `<span class="up">(${up >= 0 ? '+' : ''}${up})</span>` : ''}</span>`;
+    return `<span class="k"><small>3日目 ${f === 'rev' ? 'Google 口コミ' : 'インスタ'}</small>${fmt(vals[vals.length - 1])}${KPI_F[f][1]}${vals.length > 1 ? `<span class="up">(${up >= 0 ? '+' : ''}${up})</span>` : ''}</span>`;
   }).filter(Boolean);
   $('kband').hidden = !parts.length; $('kband').innerHTML = parts.join('');
 }
