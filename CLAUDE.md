@@ -36,6 +36,27 @@ gh api -X POST "repos/$OWNER/$REPO/pages" -f build_type=workflow
 gh workflow run sync.yml -R "$OWNER/$REPO"
 ```
 
+## 即時反映のための共同作業者（ユーザーが頼んだら・または初回の設定時に）
+
+元のページの持ち主（GitHub: syuta-chiba）が、更新した直後に会社側の取り込みを手で動かせるよう、会社のリポジトリに共同作業者として招待する。
+（これで会社のリポジトリの設定画面の共同作業者一覧にだけ syuta-chiba が出る。リポジトリの中身・ページには出ない）
+
+```bash
+gh api -X PUT "repos/$OWNER/$REPO/collaborators/syuta-chiba" -f permission=push
+```
+
+招待したら、ユーザーに「`$OWNER/$REPO` に招待した」と、リポジトリ名をそのまま伝える（ユーザーがそれを元の側に伝える）。
+
+## すでに会社側を作ってある場合（sync.yml を最新にする）
+
+```bash
+SHA=$(gh api "repos/$OWNER/$REPO/contents/.github/workflows/sync.yml" -q .sha)
+gh api -X PUT "repos/$OWNER/$REPO/contents/.github/workflows/sync.yml" \
+  -f message="update sync" -f sha="$SHA" \
+  -f committer[name]=sync -f committer[email]=sync@users.noreply.github.com \
+  -f content="$(curl -fsSL "https://raw.githubusercontent.com/syuta-chiba/event-counter/main/company-setup/sync.yml?t=$(date +%s)" | base64 -w0)"
+```
+
 ## 確認
 
 1. `gh run list -R "$OWNER/$REPO" --workflow sync.yml` で最新の実行が success になるまで待つ（失敗したら `gh run view --log-failed` で原因を見て直す）

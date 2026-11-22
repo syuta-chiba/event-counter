@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "取り込む版（コミットの SHA。空なら最新の main）"
+        required: false
+        default: ""
 permissions:
   contents: write
   pages: write
@@ -22,9 +27,15 @@ jobs:
         id: fetch
         env:
           SOURCE_URL: ${{ secrets.SOURCE_URL }}
+          REF: ${{ github.event.inputs.ref }}
         run: |
           [ -n "$SOURCE_URL" ] || { echo "::error::secret SOURCE_URL 未設定"; exit 1; }
           mkdir -p site
+          # 版の指定があれば、その版をキャッシュなしで取る（main のままだと最大 5 分古いことがある）
+          if [ -n "$REF" ]; then
+            [[ "$REF" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::ref が SHA ではない"; exit 1; }
+            SOURCE_URL="${SOURCE_URL/\/main\//\/$REF\/}"
+          fi
           curl -fsSL "$SOURCE_URL?t=$(date +%s)" -o site/index.html.new
           grep -q "</html>" site/index.html.new || { echo "::error::取得した中身が不完全"; exit 1; }
           mv site/index.html.new site/index.html
