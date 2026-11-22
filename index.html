@@ -200,7 +200,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
   <h2>Google 口コミ・インスタ（3日目）</h2>
   <div class="card"><table class="kpi" id="kpiTbl"></table>
-    <div class="note">数字は手で入れます（入力する端末だけ）。朝の数と、いまの数を入れると「増」に 3日目に増えた数が出ます。</div></div>
+    <div class="note">インスタは 3日目に 5 分おきに自動で入ります（朝の数＝その日最初に読んだ数）。口コミは手で入れます（入力する端末だけ）。朝の数と、いまの数を入れると「増」に 3日目に増えた数が出ます。</div></div>
 
   <h2>記録（新しい順）</h2>
   <div class="card"><ul class="log" id="log"></ul></div>
@@ -256,7 +256,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122195128'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122200000'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
