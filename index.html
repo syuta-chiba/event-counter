@@ -88,7 +88,8 @@ body.ro .log .x, body.ro .hist .x, body.ro #syncBtn, body.ro #undo{display:none}
 #hourChart .bar.dim{opacity:.35}
 #hourChart .hit{fill:transparent;cursor:pointer}
 #hourChart .ax{fill:var(--sub);font-size:12px}
-#hourChart .val{fill:var(--ink);font-size:12px;font-weight:700}
+#hourChart .val{fill:var(--ink);font-size:13px;font-weight:700}
+#hourChart .val2{fill:var(--sub);font-size:12px;font-weight:600}
 #hourChart .base{stroke:var(--line);stroke-width:1}
 .tbl summary{font-size:13px;color:var(--sub);margin-top:6px;cursor:pointer}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
@@ -150,7 +151,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
   <h2>時間帯別（2日目）</h2>
   <div class="card">
-    <div class="chartHead"><span>1 時間ごとの組数</span><span id="hourRead" class="hourRead">棒をタップすると人数も出ます</span></div>
+    <div class="chartHead"><span>1 時間ごとの組数</span><span id="hourRead" class="hourRead"></span></div>
     <div id="hourChart"></div>
     <details class="tbl"><summary>表で見る</summary><table id="byHour"></table></details>
   </div>
@@ -207,7 +208,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122155645'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122155943'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -357,8 +358,7 @@ function renderHourChart(h) {
   const ks = [...h.keys()], lo = Math.min(...ks), hi = Math.max(...ks);
   const hours = []; for (let k = lo; k <= hi; k++) hours.push(k);
   const max = Math.max(...hours.map(k => (h.get(k) || { g: 0 }).g), 1);
-  const W = Math.max(260, Math.round(el.clientWidth || 600)), H = 190, top = 22, bot = 22, n = hours.length, step = W / n, bw = Math.min(48, step * 0.62);
-  const peak = Math.max(...hours.map(k => (h.get(k) || { g: 0 }).g));
+  const W = Math.max(260, Math.round(el.clientWidth || 600)), H = 210, top = 40, bot = 22, n = hours.length, step = W / n, bw = Math.min(48, step * 0.62);
   let bars = '';
   hours.forEach((k, i) => {
     const v = h.get(k) || { g: 0, p: 0 };
@@ -367,13 +367,13 @@ function renderHourChart(h) {
     const path = bh ? `M${x},${H - bot} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${H - bot} Z` : '';
     const dim = hourSel !== null && hourSel !== k ? ' dim' : '';
     if (path) bars += `<path class="bar${dim}" d="${path}"/>`;
-    if (v.g && (v.g === peak || hourSel === k)) bars += `<text class="val" x="${x + bw / 2}" y="${y - 6}" text-anchor="middle">${v.g}</text>`;
+    bars += `<text class="val" x="${x + bw / 2}" y="${y - 22}" text-anchor="middle">${v.g}組</text><text class="val2" x="${x + bw / 2}" y="${y - 6}" text-anchor="middle">${v.p}人</text>`;
     bars += `<text class="ax" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${k}時</text>`;
     bars += `<rect class="hit" data-k="${k}" x="${i * step}" y="0" width="${step}" height="${H}"/>`;
   });
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="時間帯別の組数"><line class="base" x1="0" x2="${W}" y1="${H - bot}" y2="${H - bot}"/>${bars}</svg>`;
   const read = k => { const v = h.get(k) || { g: 0, p: 0 }; $('hourRead').textContent = `${k}時台: ${v.g}組 ${v.p}人`; };
-  if (hourSel !== null && hours.includes(hourSel)) read(hourSel); else $('hourRead').textContent = '棒をタップすると人数も出ます';
+  if (hourSel !== null && hours.includes(hourSel)) read(hourSel); else $('hourRead').textContent = '';
   el.querySelectorAll('.hit').forEach(r => {
     const k = Number(r.dataset.k);
     r.addEventListener('click', () => { hourSel = hourSel === k ? null : k; renderHourChart(h); });
