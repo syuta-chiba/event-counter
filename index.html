@@ -157,7 +157,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
   </div>
   <div class="kgrid">
     <div class="card stat kcard g">
-      <div class="lbl"><span class="gtxt">Google</span> <span class="nw">口コミ</span></div>
+      <div class="lbl"><span class="gtxt">Google</span> <span class="nw">口コミ（本社）</span></div>
       <div class="big"><span id="kRev">—</span><small>件</small></div>
       <div class="own">3日目の増加</div>
     </div>
@@ -198,7 +198,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
     <details class="tbl"><summary>表で見る</summary><table id="byHour"></table></details>
   </div>
 
-  <h2>Google 口コミ・インスタ（3日目）</h2>
+  <h2>Google 口コミ（本社）・インスタ（3日目）</h2>
   <div class="card"><table class="kpi" id="kpiTbl"></table>
     <div class="note">インスタは 3日目に 5 分おきに自動で入ります（朝の数＝その日最初に読んだ数）。口コミは手で入れます（入力する端末だけ）。朝の数と、いまの数を入れると「増」に 3日目に増えた数が出ます。</div></div>
 
@@ -256,7 +256,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122200000'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122200100'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
