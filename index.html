@@ -151,7 +151,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 const KEY = 'event-counter-v1';
 // QR で出すページ（会社の URL が決まったら COMPANY_URL に入れる）
 const PERSONAL_URL = 'https://syuta-chiba.github.io/event-counter/';
-const COMPANY_URL = '';
+const COMPANY_URL = 'https://chiba-prh.github.io/event-counter/';
 const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: [], entries: [] };
 let S;
 try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = Object.assign({}, DEF); }
