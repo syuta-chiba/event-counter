@@ -99,19 +99,19 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
       <div class="lbl">1日目</div>
       <div class="big"><span id="dG">0</span><small>組</small></div>
       <div class="big"><span id="dP">0</span><small>人</small></div>
-      <div class="own">（オーナー <span id="dO">0</span>）</div>
+      <div class="own">（OB <span id="dO">0</span>）</div>
     </div>
     <div class="card stat today">
       <div class="lbl" id="todayLbl">2日目</div>
       <div class="big"><span id="tG">0</span><small>組</small></div>
       <div class="big"><span id="tP">0</span><small>人</small></div>
-      <div class="own">（オーナー <span id="tO">0</span>）</div>
+      <div class="own">（OB <span id="tO">0</span>）</div>
     </div>
     <div class="card stat">
       <div class="lbl">合計</div>
       <div class="big"><span id="cG">0</span><small>組</small></div>
       <div class="big"><span id="cP">0</span><small>人</small></div>
-      <div class="own">（オーナー <span id="cO">0</span>）</div>
+      <div class="own">（OB <span id="cO">0</span>）</div>
     </div>
   </div>
   <div class="note" id="baseNote"></div>
@@ -124,7 +124,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
   <div class="edit-only">
   <h2 id="numsHead">人数をタップで記録</h2>
-  <div class="ownrow"><button class="chip" id="ownerT">オーナー</button><span id="ownerHint">オーナーの組は、先にここを押してから人数を押す</span></div>
+  <div class="ownrow"><button class="chip" id="ownerT">OB</button><span id="ownerHint">OB の組は、先にここを押してから人数を押す</span></div>
   <div class="nums" id="nums"></div>
   <div class="more" id="more" hidden>
     <div class="moreHead"><span>8人以上</span><button class="x" id="moreClose" style="color:var(--sub)">閉じる</button></div>
@@ -167,7 +167,8 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
       <div class="grid2" style="margin-top:8px">
         <div><label>1日目の組数</label><input id="bG" type="number" inputmode="numeric" min="0"></div>
         <div><label>1日目の人数</label><input id="bP" type="number" inputmode="numeric" min="0"></div>
-        <div><label>1日目のオーナー</label><input id="bO" type="number" inputmode="numeric" min="0"></div>
+        <div><label>1日目の OB</label><input id="bO" type="number" inputmode="numeric" min="0"></div>
+        <div><label>2日目の OB（あとから足す分）</label><input id="aO" type="number" inputmode="numeric" min="0"></div>
       </div>
       <div style="margin-top:10px"><label>今日の呼び名</label><input id="dayName"></div>
       <div style="margin-top:10px">
@@ -192,7 +193,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122112324'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122113352'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -207,7 +208,7 @@ setTimeout(checkUpdate, 3000);
 const KEY = 'event-counter-v1';
 // QR で出すページ
 const COMPANY_URL = 'https://chiba-prh.github.io/event-counter/';
-const DEF = { baseG: 38, baseP: 87, baseO: 9, dayName: '2日目', places: [], items: [], log: [], metaAt: 0, mine: [], dev: '' };
+const DEF = { baseG: 38, baseP: 87, baseO: 9, addO: 0, dayName: '2日目', places: [], items: [], log: [], metaAt: 0, mine: [], dev: '' };
 // 端末間の共有（パールラボのサーバー）
 const SYNC_URL = 'https://gyosei-lab.jp/api/count.php?room=ev-2026-11';
 let S;
@@ -249,7 +250,7 @@ function backfill() {
   let added = false;
   S.items.forEach(it => {
     if (!it.n) return;
-    if (!hasAdd.has(it.id)) { S.log.push({ id: 'pre-' + it.id, at: it.t, op: 'add', dev: '', text: `${it.n}人を記録${it.owner ? '（オーナー）' : ''}`, eids: [it.id] }); added = true; }
+    if (!hasAdd.has(it.id)) { S.log.push({ id: 'pre-' + it.id, at: it.t, op: 'add', dev: '', text: `${it.n}人を記録${it.owner ? '（OB）' : ''}`, eids: [it.id] }); added = true; }
     if (it.del && !hasAny.has(it.id)) { S.log.push({ id: 'pred-' + it.id, at: it.v > 1 ? it.v : it.t + 1, op: 'delete', dev: '', text: `${hhmm(it.t)} の ${it.n}人`, eids: [it.id] }); added = true; }
   });
   if (added) S.log = mergeLog([], S.log);
@@ -275,9 +276,9 @@ function add(n) {
   const e = { id: uid(), t: now, n, place: sel || '', owner: ownerOn, del: false, v: now };
   ownerOn = false; $('ownerT').classList.remove('on');
   S.items.push(e); S.mine.push(e.id); lastId = e.id;
-  logIt('add', `${n}人を記録${e.owner ? '（オーナー）' : ''}`, [e.id]);
+  logIt('add', `${n}人を記録${e.owner ? '（OB）' : ''}`, [e.id]);
   save(); render(); syncSoon();
-  showToast(`${e.owner ? 'オーナー・' : ''}${e.place ? e.place + '・' : ''}${n}人 を記録（${act().length}組目）`);
+  showToast(`${e.owner ? 'OB・' : ''}${e.place ? e.place + '・' : ''}${n}人 を記録（${act().length}組目）`);
   sel = null; renderPlaces();
 }
 const OPS = { add: '＋ 記録', delete: '✕ 消す', back: '↶ 戻る', undo: '↶ 取り消し', restore: '↺ 元に戻す', reset: '✕ 全部消す', meta: '⚙ 設定' };
@@ -310,12 +311,12 @@ async function sync() {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       S.items = mergeItems(d.items || [], []); S.log = mergeLog(d.log || [], []); backfill();
-      if (d.meta) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; if (d.meta.baseO !== undefined) S.baseO = d.meta.baseO; S.dayName = d.meta.dayName || S.dayName; }
+      if (d.meta) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; if (d.meta.baseO !== undefined) S.baseO = d.meta.baseO; if (d.meta.addO !== undefined) S.addO = d.meta.addO; S.dayName = d.meta.dayName || S.dayName; }
       save(); lastOk = Date.now(); render();
       return;
     }
     const body = JSON.stringify({ key: editKey, items: S.items, log: S.log,
-      meta: { at: S.metaAt || 0, baseG: S.baseG, baseP: S.baseP, baseO: S.baseO, dayName: S.dayName } });
+      meta: { at: S.metaAt || 0, baseG: S.baseG, baseP: S.baseP, baseO: S.baseO, addO: S.addO, dayName: S.dayName } });
     const r = await fetch(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, cache: 'no-store' });
     if (r.status === 403) { setKey(''); showToast('合言葉が変わったため、見る専用になりました', false); return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -324,7 +325,7 @@ async function sync() {
     S.items = mergeItems(d.items || [], S.items);
     S.log = mergeLog(d.log || [], S.log);
     if (backfill()) again = true;
-    if (d.meta && d.meta.at > (S.metaAt || 0)) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; if (d.meta.baseO !== undefined) S.baseO = d.meta.baseO; S.dayName = d.meta.dayName || S.dayName; }
+    if (d.meta && d.meta.at > (S.metaAt || 0)) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; if (d.meta.baseO !== undefined) S.baseO = d.meta.baseO; if (d.meta.addO !== undefined) S.addO = d.meta.addO; S.dayName = d.meta.dayName || S.dayName; }
     save(); lastOk = Date.now();
     if (document.activeElement && document.activeElement.tagName === 'INPUT') renderStat(); else render();
   } catch (e) {
@@ -390,8 +391,8 @@ function render() {
   const E = act(), g = E.length, p = E.reduce((a,e)=>a+e.n,0);
   $('tG').textContent = g; $('tP').textContent = p;
   $('dG').textContent = S.baseG; $('dP').textContent = S.baseP;
-  const o = E.filter(e => e.owner).length;
-  $('dO').textContent = S.baseO; $('tO').textContent = o; $('cO').textContent = S.baseO + o; $('bO').value = S.baseO;
+  const o = E.filter(e => e.owner).length + (S.addO || 0);
+  $('dO').textContent = S.baseO; $('tO').textContent = o; $('cO').textContent = S.baseO + o; $('bO').value = S.baseO; $('aO').value = S.addO || 0;
   $('cG').textContent = S.baseG + g; $('cP').textContent = S.baseP + p;
   $('todayLbl').textContent = S.dayName; $('title').textContent = '来場カウンター（' + S.dayName + '）';
   $('baseNote').textContent = g ? `${S.dayName}の平均 ${(p/g).toFixed(1)}人/組` : '';
@@ -415,7 +416,7 @@ function render() {
 
   // log
   $('log').innerHTML = E.length ? E.slice().reverse().map((e,i) =>
-    `<li><span><span class="t">${hhmm(e.t)}</span>${E.length-i}組目　${e.n}人${e.owner?'<span class="tag">オーナー</span>':''}${e.place?'　'+esc(e.place):''}</span><button class="x" data-id="${e.id}">消す</button></li>`).join('')
+    `<li><span><span class="t">${hhmm(e.t)}</span>${E.length-i}組目　${e.n}人${e.owner?'<span class="tag">OB</span>':''}${e.place?'　'+esc(e.place):''}</span><button class="x" data-id="${e.id}">消す</button></li>`).join('')
     : '<li class="empty">まだ記録がありません</li>';
   $('log').querySelectorAll('.x').forEach(b => b.onclick = () => { if (confirm('この記録を消しますか？')) del(b.dataset.id, 'delete'); });
   renderHist();
@@ -444,7 +445,8 @@ $('moreNums').querySelectorAll('.num').forEach(b => b.onclick = () => {
 });
 $('moreClose').onclick = () => toggleMore(false);
 $('bG').onchange = () => { const o = S.baseG, v = Math.max(0, parseInt($('bG').value,10) || 0); setMeta(() => S.baseG = v, `1日目の組数 ${o} → ${v}`); };
-$('bO').onchange = () => { const o = S.baseO, v = Math.max(0, parseInt($('bO').value,10) || 0); setMeta(() => S.baseO = v, `1日目のオーナー ${o} → ${v}`); };
+$('bO').onchange = () => { const o = S.baseO, v = Math.max(0, parseInt($('bO').value,10) || 0); setMeta(() => S.baseO = v, `1日目の OB ${o} → ${v}`); };
+$('aO').onchange = () => { const o = S.addO || 0, v = Math.max(0, parseInt($('aO').value,10) || 0); setMeta(() => S.addO = v, `2日目の OB（あとから足す分） ${o} → ${v}`); };
 $('bP').onchange = () => { const o = S.baseP, v = Math.max(0, parseInt($('bP').value,10) || 0); setMeta(() => S.baseP = v, `1日目の人数 ${o} → ${v}`); };
 $('dayName').onchange = () => { const o = S.dayName, v = $('dayName').value.trim() || '2日目'; setMeta(() => S.dayName = v, `呼び名 ${o} → ${v}`); };
 $('addPlace').onclick = () => { const v = $('newPlace').value.trim(); if (v && !S.places.includes(v)) { S.places.push(v); save(); } $('newPlace').value=''; render(); };
