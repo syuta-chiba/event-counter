@@ -229,16 +229,20 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
         <button class="btn" id="keyOff" style="margin-top:8px">見る専用に戻す</button>
       </div>
     </details>
+    <details id="showBox">
+      <summary>表示の切り替え（Google・Instagram）</summary>
+      <div class="checks edit-only" style="margin-top:8px">
+        <label><input type="checkbox" id="showRev"> Google 口コミを表示</label>
+        <label><input type="checkbox" id="showIg"> Instagram を表示</label>
+      </div>
+      <div class="note ro-only">切り替えは、入力する端末（合言葉を入れた端末）でできます。</div>
+    </details>
     <details>
       <summary>1日目の数・地点の編集・保存</summary>
       <div class="edit-only">
       <div class="grid2" style="margin-top:8px">
         <div><label>1日目の組数</label><input id="bG" type="number" inputmode="numeric" min="0"></div>
         <div><label>1日目の人数</label><input id="bP" type="number" inputmode="numeric" min="0"></div>
-        <div class="checks" style="grid-column:1/-1">
-          <label><input type="checkbox" id="showRev"> Google 口コミを表示</label>
-          <label><input type="checkbox" id="showIg"> Instagram を表示</label>
-        </div>
         <div><label>1日目の OB</label><input id="bO" type="number" inputmode="numeric" min="0"></div>
         <div><label>2日目の OB（あとから足す分）</label><input id="aO" type="number" inputmode="numeric" min="0"></div>
         <div><label>3日目の OB（あとから足す分）</label><input id="aO3" type="number" inputmode="numeric" min="0"></div>
@@ -265,7 +269,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261123082447'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261123082853'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
