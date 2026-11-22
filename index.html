@@ -70,6 +70,10 @@ label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 .sync{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--sub)}
 .sync .btn{padding:8px 12px;font-size:13px}
 .sync .ng{color:var(--warn);font-weight:700}
+.hist li{gap:8px}
+.hist .op{font-weight:700;margin-right:6px}
+.hist .dev{font-size:12px;color:var(--sub);margin-left:6px}
+.hist .x.ok{color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
   width:calc(100% - 32px);max-width:420px;justify-content:space-between}
@@ -127,6 +131,9 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
   <h2>記録（新しい順）</h2>
   <div class="card"><ul class="log" id="log"></ul></div>
 
+  <h2>変更履歴（新しい順）</h2>
+  <div class="card"><ul class="log hist" id="hist"></ul></div>
+
   <h2>設定</h2>
   <div class="card">
     <details>
@@ -157,7 +164,7 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">取り消し</button></div>
 
 <script>
-const BUILD = '20261122101139'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
+const BUILD = '20261122101715'; // commit のたびに自動で書き換わる（.git/hooks/pre-commit）
 // 新しい版が出ていたら読み込み直す（キャッシュを避けるため毎回 URL を変えて確認）
 async function checkUpdate() {
   try {
@@ -172,28 +179,73 @@ setTimeout(checkUpdate, 3000);
 const KEY = 'event-counter-v1';
 // QR で出すページ
 const COMPANY_URL = 'https://chiba-prh.github.io/event-counter/';
-const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: [], entries: [], deleted: [], metaAt: 0, mine: [] };
+const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: [], items: [], log: [], metaAt: 0, mine: [], dev: '' };
 // 端末間の共有（パールラボのサーバー）
 const SYNC_URL = 'https://gyosei-lab.jp/api/count.php?room=ev-2026-11';
 let S;
 try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = Object.assign({}, DEF); }
 // 以前の仮の地点（市内・市外・県外）は外す
 if (S.places.join() === '市内,市外,県外') { S.places = []; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-S.entries.forEach(e => e.id = String(e.id));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+// items: 1 組 = 1 件 {id,t,n,place,del,v}。消しても del=true で残すので元に戻せる。v は最後に変えた時刻（端末間で新しい方を使う）
+function mergeItems(a, b) {
+  const m = new Map();
+  [...a, ...b].forEach(x => {
+    const it = Object.assign({}, x, { id: String(x.id), v: x.v || 0, del: !!x.del, n: x.n || 0, t: x.t || 0, place: x.place || '' });
+    const c = m.get(it.id);
+    if (!c) { m.set(it.id, it); return; }
+    if (it.v > c.v || (it.v === c.v && it.del && !c.del)) {
+      if (!it.n && c.n) Object.assign(it, { n: c.n, t: c.t, place: c.place });
+      m.set(it.id, it);
+    } else if (!c.n && it.n) Object.assign(c, { n: it.n, t: it.t, place: it.place });
+  });
+  return [...m.values()].sort((x, y) => x.t - y.t);
+}
+function mergeLog(a, b) {
+  const m = new Map(); [...a, ...b].forEach(l => { if (l && l.id && !m.has(l.id)) m.set(l.id, l); });
+  return [...m.values()].sort((x, y) => x.at - y.at).slice(-3000);
+}
+// 前の版の保存形式（entries + deleted）から移す
+if (Array.isArray(S.entries) || Array.isArray(S.deleted)) {
+  S.items = mergeItems(S.items || [], [
+    ...(S.entries || []).map(e => ({ id: e.id, t: e.t, n: e.n, place: e.place, del: false, v: 0 })),
+    ...(S.deleted || []).map(id => ({ id, del: true, v: 1 }))]);
+  delete S.entries; delete S.deleted;
+}
+if (!S.dev) S.dev = uid();
+const act = () => S.items.filter(e => !e.del && e.n > 0);
 let sel = null, lastId = null, toastTimer = null;
 const $ = id => document.getElementById(id);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+function logIt(op, text, eids) { S.log.push({ id: uid(), at: Date.now(), op, dev: S.dev, text, eids: eids || [] }); }
 function add(n) {
-  const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), t: Date.now(), n, place: sel || '' };
-  S.entries.push(e); S.mine.push(e.id); lastId = e.id; save(); render(); syncSoon();
-  showToast(`${e.place ? e.place + '・' : ''}${n}人 を記録（${S.entries.length}組目）`);
+  const now = Date.now();
+  const e = { id: uid(), t: now, n, place: sel || '', del: false, v: now };
+  S.items.push(e); S.mine.push(e.id); lastId = e.id;
+  logIt('add', `${n}人を記録`, [e.id]);
+  save(); render(); syncSoon();
+  showToast(`${e.place ? e.place + '・' : ''}${n}人 を記録（${act().length}組目）`);
   sel = null; renderPlaces();
 }
-function del(id) { id = String(id); S.entries = S.entries.filter(e => e.id !== id); if (!S.deleted.includes(id)) S.deleted.push(id); save(); render(); syncSoon(); }
-function setMeta(f) { f(); S.metaAt = Date.now(); save(); render(); syncSoon(); }
+const OPS = { add: '＋ 記録', delete: '✕ 消す', back: '↶ 戻る', undo: '↶ 取り消し', restore: '↺ 元に戻す', reset: '✕ 全部消す', meta: '⚙ 設定' };
+// ids の記録を消す（del=true）か元に戻す（del=false）。履歴に 1 行残す
+function setDel(ids, del, op, text) {
+  const now = Date.now(), done = [];
+  ids.forEach(id => {
+    const it = S.items.find(x => x.id === String(id));
+    if (!it || it.del === del) return;
+    it.del = del; it.v = Math.max(now, it.v + 1); done.push(it);
+  });
+  if (!done.length) return null;
+  logIt(op, text || (done.length === 1 ? `${hhmm(done[0].t)} の ${done[0].n}人` : `${done.length}組`), done.map(x => x.id));
+  save(); render(); syncSoon();
+  return done;
+}
+const del = (id, op = 'delete') => setDel([id], true, op);
+function setMeta(f, text) { f(); S.metaAt = Date.now(); if (text) logIt('meta', text); save(); render(); syncSoon(); }
 
 let syncing = false, again = false, syncTimer = null, lastOk = 0;
 function syncSoon() { clearTimeout(syncTimer); syncTimer = setTimeout(sync, 300); }
@@ -201,18 +253,14 @@ async function sync() {
   if (syncing) { again = true; return; }
   syncing = true;
   try {
-    const body = JSON.stringify({ entries: S.entries, deleted: S.deleted,
+    const body = JSON.stringify({ items: S.items, log: S.log,
       meta: { at: S.metaAt || 0, baseG: S.baseG, baseP: S.baseP, dayName: S.dayName } });
     const r = await fetch(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    // 送っているあいだに増えた・消した分は残す
-    const del = new Set([...(d.deleted || []), ...S.deleted].map(String));
-    const map = new Map();
-    (d.entries || []).forEach(e => map.set(String(e.id), Object.assign({}, e, { id: String(e.id) })));
-    S.entries.forEach(e => { if (!map.has(e.id)) map.set(e.id, e); });
-    S.entries = [...map.values()].filter(e => !del.has(e.id)).sort((a, b) => a.t - b.t);
-    S.deleted = [...del];
+    // 送っているあいだに変えた分も残す（v の新しい方）
+    S.items = mergeItems(d.items || [], S.items);
+    S.log = mergeLog(d.log || [], S.log);
     if (d.meta && d.meta.at > (S.metaAt || 0)) { S.metaAt = d.meta.at; S.baseG = d.meta.baseG; S.baseP = d.meta.baseP; S.dayName = d.meta.dayName || S.dayName; }
     save(); lastOk = Date.now();
     if (document.activeElement && document.activeElement.tagName === 'INPUT') renderStat(); else render();
@@ -222,6 +270,24 @@ async function sync() {
     syncing = false;
     if (again) { again = false; syncSoon(); }
   }
+}
+function renderHist() {
+  const byId = new Map(S.items.map(x => [x.id, x]));
+  const latest = new Map(); S.log.forEach(l => (l.eids || []).forEach(id => latest.set(id, l.id)));
+  const rows = S.log.slice().reverse().slice(0, 300);
+  $('hist').innerHTML = rows.length ? rows.map(l => {
+    const ids = (l.eids || []).filter(id => latest.get(id) === l.id && byId.has(id));
+    let btn = '';
+    if (ids.length && ['add', 'restore'].includes(l.op) && ids.some(id => !byId.get(id).del)) btn = `<button class="x" data-do="del" data-l="${l.id}">取り消す</button>`;
+    if (ids.length && ['delete', 'back', 'undo', 'reset'].includes(l.op) && ids.some(id => byId.get(id).del)) btn = `<button class="x ok" data-do="restore" data-l="${l.id}">${l.op === 'reset' ? '全部元に戻す' : '元に戻す'}</button>`;
+    return `<li><span><span class="t">${hhmm(l.at)}</span><span class="op">${OPS[l.op] || esc(l.op)}</span>${esc(l.text || '')}<span class="dev">${l.dev === S.dev ? 'この端末' : '他の端末'}</span></span>${btn}</li>`;
+  }).join('') : '<li class="empty">まだ変更はありません</li>';
+  $('hist').querySelectorAll('.x').forEach(b => b.onclick = () => {
+    const l = S.log.find(x => x.id === b.dataset.l); if (!l) return;
+    const ids = (l.eids || []).filter(id => latest.get(id) === l.id);
+    if (b.dataset.do === 'restore') { const d = setDel(ids, false, 'restore'); if (d) showToast(`元に戻しました（${d.length}組）`, false); }
+    else if (confirm('この記録を取り消しますか？')) setDel(ids, true, 'delete');
+  });
 }
 function renderStat(ng) {
   $('syncStat').innerHTML = ng
@@ -237,12 +303,12 @@ function showToast(msg, undo = true) {
   $('toastMsg').textContent = msg; $('toast').style.display = 'flex';
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').style.display = 'none', 5000);
 }
-$('undo').onclick = () => { if (lastId != null) del(lastId); lastId = null; $('toast').style.display = 'none'; };
+$('undo').onclick = () => { if (lastId != null) del(lastId, 'undo'); lastId = null; $('toast').style.display = 'none'; };
 
 $('back').onclick = () => {
   // この端末で付けた記録のうち最後のもの（他の端末の記録は戻さない）
-  const e = [...S.entries].reverse().find(x => S.mine.includes(x.id)); if (!e) { showToast('この端末で付けた記録がありません', false); return; }
-  del(e.id); lastId = null; showToast(`戻しました（${hhmm(e.t)} の ${e.n}人 を取り消し）`, false);
+  const e = act().reverse().find(x => S.mine.includes(x.id)); if (!e) { showToast('この端末で付けた記録がありません', false); return; }
+  del(e.id, 'back'); lastId = null; showToast(`戻しました（${hhmm(e.t)} の ${e.n}人 を取り消し）`, false);
 };
 function renderPlaces() {
   const has = S.places.length > 0;
@@ -258,7 +324,7 @@ function renderPlaces() {
 }
 
 function render() {
-  const E = S.entries, g = E.length, p = E.reduce((a,e)=>a+e.n,0);
+  const E = act(), g = E.length, p = E.reduce((a,e)=>a+e.n,0);
   $('tG').textContent = g; $('tP').textContent = p;
   $('dG').textContent = S.baseG; $('dP').textContent = S.baseP;
   $('cG').textContent = S.baseG + g; $('cP').textContent = S.baseP + p;
@@ -286,7 +352,8 @@ function render() {
   $('log').innerHTML = E.length ? E.slice().reverse().map((e,i) =>
     `<li><span><span class="t">${hhmm(e.t)}</span>${E.length-i}組目　${e.n}人${e.place?'　'+esc(e.place):''}</span><button class="x" data-id="${e.id}">消す</button></li>`).join('')
     : '<li class="empty">まだ記録がありません</li>';
-  $('log').querySelectorAll('.x').forEach(b => b.onclick = () => { if (confirm('この記録を消しますか？')) del(b.dataset.id); });
+  $('log').querySelectorAll('.x').forEach(b => b.onclick = () => { if (confirm('この記録を消しますか？')) del(b.dataset.id, 'delete'); });
+  renderHist();
   renderPlaces();
   renderStat();
 }
@@ -311,13 +378,13 @@ $('moreNums').querySelectorAll('.num').forEach(b => b.onclick = () => {
   toggleMore(false);
 });
 $('moreClose').onclick = () => toggleMore(false);
-$('bG').onchange = () => setMeta(() => S.baseG = Math.max(0, parseInt($('bG').value,10) || 0));
-$('bP').onchange = () => setMeta(() => S.baseP = Math.max(0, parseInt($('bP').value,10) || 0));
-$('dayName').onchange = () => setMeta(() => S.dayName = $('dayName').value.trim() || '2日目');
+$('bG').onchange = () => { const o = S.baseG, v = Math.max(0, parseInt($('bG').value,10) || 0); setMeta(() => S.baseG = v, `1日目の組数 ${o} → ${v}`); };
+$('bP').onchange = () => { const o = S.baseP, v = Math.max(0, parseInt($('bP').value,10) || 0); setMeta(() => S.baseP = v, `1日目の人数 ${o} → ${v}`); };
+$('dayName').onchange = () => { const o = S.dayName, v = $('dayName').value.trim() || '2日目'; setMeta(() => S.dayName = v, `呼び名 ${o} → ${v}`); };
 $('addPlace').onclick = () => { const v = $('newPlace').value.trim(); if (v && !S.places.includes(v)) { S.places.push(v); save(); } $('newPlace').value=''; render(); };
-$('reset').onclick = () => { if (confirm('今日の記録をすべて消します。よろしいですか？') && confirm('本当に消しますか？（元に戻せません）')) { S.entries.forEach(e => S.deleted.push(e.id)); S.entries = []; save(); render(); syncSoon(); } };
+$('reset').onclick = () => { if (confirm('今日の記録をすべて消します。よろしいですか？') && confirm('本当に消しますか？（変更履歴から元に戻せます）')) { const ids = act().map(e => e.id); setDel(ids, true, 'reset', `${ids.length}組を全部消す`); } };
 $('csv').onclick = () => {
-  const lines = ['時刻,人数,地点', ...S.entries.map(e => `${new Date(e.t).toLocaleString('ja-JP')},${e.n},"${(e.place||'').replace(/"/g,'""')}"`)];
+  const lines = ['時刻,人数,地点', ...act().map(e => `${new Date(e.t).toLocaleString('ja-JP')},${e.n},"${(e.place||'').replace(/"/g,'""')}"`)];
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], {type:'text/csv'}));
   a.download = `来場記録_${S.dayName}.csv`; a.click();
