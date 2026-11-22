@@ -53,6 +53,12 @@ label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .back{width:100%;margin-top:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:14px 0;font-size:17px;font-weight:700}
 .back:disabled{opacity:.4}
+.qrs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.qr{text-align:center;font-size:13px;color:var(--sub)}
+.qr .img{background:#fff;border-radius:10px;padding:8px;display:inline-block;width:100%}
+.qr .img img,.qr .img svg{width:100%;height:auto;display:block}
+.qr b{display:block;color:var(--ink);font-size:14px;margin:6px 0 2px}
+.qr a{color:var(--accent);word-break:break-all}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
   width:calc(100% - 32px);max-width:420px;justify-content:space-between}
@@ -60,6 +66,7 @@ label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;padding:6px 0}
 .empty{color:var(--sub);font-size:14px;padding:6px 0}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
 <body>
 <main>
@@ -119,6 +126,14 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
       </div>
       <div class="note">記録はこの端末のブラウザにだけ保存されます。別の端末とは共有されません。念のため、終わったら CSV を保存してください。</div>
     </details>
+    <details id="qrBox">
+      <summary>ページの QR コード</summary>
+      <div class="qrs" id="qrs"></div>
+      <div style="margin-top:10px">
+        <label>会社のページの URL（決まったら入れる）</label>
+        <div class="row"><input id="coUrl" type="url" placeholder="https://…github.io/…/" style="flex:1"><button class="btn" id="coSave">表示</button></div>
+      </div>
+    </details>
   </div>
 </main>
 
@@ -126,6 +141,9 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
 <script>
 const KEY = 'event-counter-v1';
+// QR で出すページ（会社の URL が決まったら COMPANY_URL に入れる）
+const PERSONAL_URL = 'https://syuta-chiba.github.io/event-counter/';
+const COMPANY_URL = '';
 const DEF = { baseG: 38, baseP: 87, dayName: '2日目', places: [], entries: [] };
 let S;
 try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = Object.assign({}, DEF); }
@@ -219,6 +237,23 @@ $('csv').onclick = () => {
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], {type:'text/csv'}));
   a.download = `来場記録_${S.dayName}.csv`; a.click();
 };
+function coUrl() {
+  if (COMPANY_URL) return COMPANY_URL;
+  try { return localStorage.getItem(KEY + '-co') || ''; } catch (e) { return ''; }
+}
+function renderQR() {
+  const list = [['個人のページ', PERSONAL_URL], ['会社のページ', coUrl()]];
+  $('qrs').innerHTML = list.map(([name, url]) => {
+    let img = '<div class="empty" style="padding:30px 0">URL 未設定</div>';
+    if (url && window.qrcode) { const q = qrcode(0, 'M'); q.addData(url); q.make(); img = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+    else if (url) img = '<div class="empty" style="padding:30px 0">QR を読み込めません（通信を確認）</div>';
+    return `<div class="qr"><div class="img">${img}</div><b>${name}</b>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>` : ''}</div>`;
+  }).join('');
+  $('coUrl').value = coUrl();
+  $('coUrl').disabled = $('coSave').disabled = !!COMPANY_URL;
+}
+$('coSave').onclick = () => { try { localStorage.setItem(KEY + '-co', $('coUrl').value.trim()); } catch (e) {} renderQR(); };
+$('qrBox').addEventListener('toggle', renderQR);
 const tick = () => $('clock').textContent = hhmm(Date.now()); tick(); setInterval(tick, 10000);
 render();
 </script>
