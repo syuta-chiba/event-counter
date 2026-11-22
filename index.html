@@ -59,6 +59,10 @@ label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
 .qr .img img,.qr .img svg{width:100%;height:auto;display:block}
 .qr b{display:block;color:var(--ink);font-size:14px;margin:6px 0 2px}
 .qr a{color:var(--accent);word-break:break-all}
+.more{margin-top:10px;border:1.5px solid var(--accent);border-radius:14px;padding:10px;background:var(--card)}
+.moreHead{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;color:var(--sub);margin-bottom:8px}
+.more .num{padding:14px 0;font-size:22px}
+.num.open{background:var(--accent);color:var(--accent-ink)}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:12px 14px;font-size:15px;display:none;gap:14px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);
   width:calc(100% - 32px);max-width:420px;justify-content:space-between}
@@ -93,6 +97,10 @@ details summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:600;p
 
   <h2 id="numsHead">人数をタップで記録</h2>
   <div class="nums" id="nums"></div>
+  <div class="more" id="more" hidden>
+    <div class="moreHead"><span>8人以上</span><button class="x" id="moreClose" style="color:var(--sub)">閉じる</button></div>
+    <div class="nums" id="moreNums"></div>
+  </div>
   <button class="back" id="back">↶ 戻る（1つ前の記録を取り消す）</button>
 
   <div id="byPlaceSec">
@@ -222,10 +230,22 @@ function render() {
 $('nums').innerHTML = [1,2,3,4,5,6,7].map(n => `<button class="num" data-n="${n}">${n}<span>人</span></button>`).join('') +
   '<button class="num" data-n="x" style="font-size:18px">8人〜</button>';
 $('nums').querySelectorAll('.num').forEach(b => b.onclick = () => {
-  if (b.dataset.n === 'x') { const v = parseInt(prompt('人数を入力してください', '8'), 10); if (v > 0) add(v); }
+  if (b.dataset.n === 'x') { toggleMore(); }
   else add(Number(b.dataset.n));
 });
 
+function toggleMore(open) {
+  const m = $('more'); const show = open ?? m.hidden; m.hidden = !show;
+  document.querySelector('.num[data-n="x"]').classList.toggle('open', show);
+}
+$('moreNums').innerHTML = Array.from({length: 13}, (_, i) => i + 8).map(n => `<button class="num" data-n="${n}">${n}<span>人</span></button>`).join('') +
+  '<button class="num" data-n="other" style="font-size:16px">21人〜</button>';
+$('moreNums').querySelectorAll('.num').forEach(b => b.onclick = () => {
+  if (b.dataset.n === 'other') { const v = parseInt(prompt('人数を入力してください', '21'), 10); if (v > 0) add(v); }
+  else add(Number(b.dataset.n));
+  toggleMore(false);
+});
+$('moreClose').onclick = () => toggleMore(false);
 $('bG').onchange = () => { S.baseG = Math.max(0, parseInt($('bG').value,10) || 0); save(); render(); };
 $('bP').onchange = () => { S.baseP = Math.max(0, parseInt($('bP').value,10) || 0); save(); render(); };
 $('dayName').onchange = () => { S.dayName = $('dayName').value.trim() || '2日目'; save(); render(); };
